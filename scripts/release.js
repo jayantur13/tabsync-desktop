@@ -95,23 +95,48 @@ async function uploadBinaries(octokit, releaseId) {
     return;
   }
 
-  const binaries = fs
-    .readdirSync(distDir)
-    .filter(f => /\.(zip|exe|AppImage|deb|rpm)$/i.test(f))
-    .map(f => path.join(distDir, f));
+  // Supported binary extensions for Linux & Windows builds
+  const binaryExts = [
+    ".AppImage",
+    ".deb",
+    ".rpm",
+    ".exe",
+    ".nupkg",
+    ".zip",
+  ];
+
+  // Recursive walk function
+  function walk(dir) {
+    let results = [];
+    for (const file of fs.readdirSync(dir)) {
+      const full = path.join(dir, file);
+      const stat = fs.statSync(full);
+      if (stat.isDirectory()) results = results.concat(walk(full));
+      else results.push(full);
+    }
+    return results;
+  }
+
+  // Collect all binaries
+  const allFiles = walk(distDir);
+  const binaries = allFiles.filter((f) =>
+    binaryExts.some((ext) => f.toLowerCase().endsWith(ext.toLowerCase()))
+  );
 
   if (binaries.length === 0) {
-    console.warn("⚠️ No binaries found to upload.");
+    console.warn("⚠️ No binaries found to upload in:", distDir);
     return;
   }
 
-  console.log(`📦 Found ${binaries.length} binaries to upload:`);
-
+  console.log(`📦 Found ${binaries.length} binaries to upload:\n`);
   for (const filePath of binaries) {
     const fileName = path.basename(filePath);
-    console.log(`⬆️ Uploading: ${fileName}`);
+    const fileSize = (fs.statSync(filePath).size / (1024 * 1024)).toFixed(2);
+
+    console.log(`⬆️ Uploading: ${fileName} (${fileSize} MB)`);
     try {
       const data = fs.readFileSync(filePath);
+
       await octokit.repos.uploadReleaseAsset({
         owner: "jayantur13",
         repo: "tabsync-desktop",
@@ -123,6 +148,7 @@ async function uploadBinaries(octokit, releaseId) {
           "content-type": "application/octet-stream",
         },
       });
+
       console.log(`✅ Uploaded ${fileName}`);
     } catch (err) {
       console.error(`❌ Failed to upload ${fileName}:`, err.message);
