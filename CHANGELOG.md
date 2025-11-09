@@ -5,6 +5,10 @@
 ### 🏁 Initial Release
 This is the first official release of TabSync Desktop.
 
+### 🧹 Chores
+
+- (release): 1.0.0 ([8e0d818](https://github.com/jayantur13/tabsync-desktop/commit/8e0d818435f84f6d77a78a309aa07c06a87fe5ec))
+
 ### 🛠️ Updates
 
 - release script ([7682dba](https://github.com/jayantur13/tabsync-desktop/commit/7682dbad2e2610bc95b97b280ab22d27f3f24357))
