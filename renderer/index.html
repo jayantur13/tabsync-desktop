@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TabSync Local</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #f7f9fb;
+            color: #222;
+            margin: 0;
+            padding: 1rem;
+        }
+
+        h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+
+        #devices {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .device {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+        }
+
+        .tabs a {
+            display: block;
+            text-decoration: none;
+            color: #0077cc;
+            margin: 4px 0;
+            border-left: 3px solid #302b2b;
+            padding-left: 6px;
+            word-break: break-all;
+        }
+
+        .tabs a:hover {
+            text-decoration: underline;
+        }
+
+        #addUrlForm {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            justify-content: center;
+        }
+
+        input {
+            flex: 1;
+            padding: 0.5rem;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background: #0077cc;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #005fa3;
+        }
+
+        #status {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        #external a {
+            color: #0077cc;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        #external a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🧩 TabSync Local</h2>
+
+    <form id="addUrlForm">
+        <input type="text" id="urlInput" placeholder="Paste a URL to sync..." />
+        <button type="submit">Add</button>
+    </form>
+
+    <div id="status">Connecting...</div>
+
+    <div id="external" style="text-align:center; margin-top:10px;">
+        Server Address: <a id="serverLink" href="#" target="_blank">Loading...</a>
+    </div>
+
+    <div id="devices"></div>
+
+    <script>
+        let deviceId =
+            localStorage.getItem("deviceId") ||
+            `device-${Math.random().toString(36).slice(2, 8)}`;
+        localStorage.setItem("deviceId", deviceId);
+
+        let ws;
+        let serverIP = null;
+        let backendPort = null; // dynamic from electron or fallback
+        const devicesDiv = document.getElementById("devices");
+        const statusEl = document.getElementById("status");
+        const external = document.getElementById("external");
+
+        async function init() {
+            try {
+                // Detect environment
+                const isElectron = !!window.tabsync;
+                console.log("🌍 Environment:", isElectron ? "Electron" : "Web");
+
+                if (isElectron) {
+                    // ✅ Inside Electron: get config via IPC
+                    const config = await window.tabsync.getConfig();
+                    backendPort = config.port || 3210;
+                } else {
+                    // 🌐 Normal browser: try saved port or default
+                    backendPort = localStorage.getItem("tabsync_port") || 3210;
+                }
+
+                console.log("🧠 Using backend port:", backendPort);
+
+                const originHost = location.hostname || "localhost";
+                console.log(`🌐 Fetching from http://${originHost}:${backendPort}/ip`);
+
+                const res = await fetch(`http://${originHost}:${backendPort}/ip`);
+                const data = await res.json();
+
+                serverIP = data.ip;
+                const serverURL = `http://${serverIP}:${backendPort}`;
+
+                // update server link
+                const serverLink = document.getElementById("serverLink");
+                serverLink.textContent = serverURL;
+                serverLink.href = serverURL;
+
+                // allow browser users to override port
+                serverLink.addEventListener("click", (e) => {
+                    if (isElectron) {
+                        e.preventDefault();
+                        window.electronAPI.openExternal(serverURL);
+                    }
+                });
+
+                // Save last working port (helps on web reloads)
+                localStorage.setItem("tabsync_port", backendPort);
+
+                const wsUrl = `ws://${data.ip}:${data.wsPort}`;
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => (statusEl.textContent = "✅ Connected");
+                ws.onclose = () => (statusEl.textContent = "⚠️ Disconnected");
+                ws.onmessage = (e) => renderDevices(JSON.parse(e.data));
+            } catch (err) {
+                console.error("Failed to init:", err);
+                document.getElementById("serverLink").textContent = "Not running";
+                statusEl.textContent = "❌ Could not connect to server";
+
+                // 🧩 Helpful for browser users: allow changing port easily
+                const portInput = prompt(
+                    "Server not reachable. Enter TabSync port (default 3210):",
+                    backendPort || 3210
+                );
+                if (portInput) {
+                    localStorage.setItem("tabsync_port", portInput);
+                    location.reload();
+                }
+            }
+        }
+
+        function renderDevices(devices) {
+            devicesDiv.innerHTML = "";
+
+            for (const [id, tabs] of Object.entries(devices)) {
+                const deviceEl = document.createElement("div");
+                deviceEl.className = "device";
+
+                const title =
+                    id === deviceId
+                        ? `💻 ${id} (You)`
+                        : id.startsWith("device-")
+                            ? `📱 ${id}`
+                            : id;
+
+                deviceEl.innerHTML = `<h3>${title}</h3><div class="tabs"></div>`;
+                const tabsDiv = deviceEl.querySelector(".tabs");
+
+                // Sort tabs alphabetically by title (optional)
+                const sortedTabs = [...tabs].sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+                sortedTabs.forEach((tab) => {
+                    const container = document.createElement("div");
+                    container.style.display = "flex";
+                    container.style.alignItems = "center";
+                    container.style.justifyContent = "space-between";
+                    container.style.marginBottom = "6px";
+                    container.style.gap = "10px";
+
+                    // Tab link
+                    const a = document.createElement("a");
+                    a.href = tab.url;
+                    a.target = "_blank";
+                    a.textContent = tab.title || tab.url;
+                    a.style.flex = "1";
+                    a.title = "Open (in new window)";
+                    a.style.textDecoration = "none";
+                    a.style.color = "#007bff";
+                    a.style.overflow = "hidden";
+                    a.style.textOverflow = "ellipsis";
+                    a.style.whiteSpace = "nowrap";
+
+                    // Buttons wrapper (for alignment)
+                    const btnGroup = document.createElement("div");
+                    btnGroup.style.display = "flex";
+                    btnGroup.style.gap = "6px";
+
+                    // Open button (left)
+                    const openBtn = document.createElement("button");
+                    openBtn.innerText = "Open URL";
+                    openBtn.type = "button";
+                    openBtn.title = "Open in browser";
+                    openBtn.style.padding = "4px 8px";
+                    openBtn.style.cursor = "pointer";
+
+                    openBtn.addEventListener("click", () => {
+                        try {
+                            console.log("🔗 Opening in browser:", tab.url);
+                            if (window.electronAPI?.openExternal) {
+                                window.electronAPI.openExternal(tab.url);
+                            } else {
+                                window.open(tab.url, "_blank");
+                            }
+                        } catch (err) {
+                            console.error("Failed to open URL:", err);
+                        }
+                    });
+
+                    // Copy button (right)
+                    try {
+                        const isElectron = !!window.tabsync;
+                        if (isElectron) {
+                            const copy = document.createElement("button");
+                            copy.innerText = "Copy URL";
+                            copy.type = "button";
+                            copy.title = "Copy to clipboard";
+                            copy.style.padding = "4px 8px";
+                            copy.style.cursor = "pointer";
+
+                            copy.addEventListener("click", async () => {
+                                try {
+                                    await navigator.clipboard.writeText(tab.url);
+                                    copy.innerText = "Copied!";
+                                    setTimeout(() => (copy.innerText = "Copy URL"), 1000);
+                                } catch (err) {
+                                    console.error("Failed to copy text:", err);
+                                    copy.innerText = "Copy failed!";
+                                    setTimeout(() => (copy.innerText = "Copy URL"), 1000);
+                                }
+                            });
+
+                            // Append copy after open
+                            btnGroup.appendChild(openBtn);
+                            btnGroup.appendChild(copy);
+                        } else {
+                            btnGroup.appendChild(openBtn);
+                        }
+                    } catch (err) {
+                        console.error("Copy button error", err);
+                        btnGroup.appendChild(openBtn);
+                    }
+
+                    // Put together
+                    container.appendChild(a);
+                    container.appendChild(btnGroup);
+                    tabsDiv.appendChild(container);
+                });
+
+                devicesDiv.appendChild(deviceEl);
+            }
+        }
+
+        // Handle Add URL form
+        document.getElementById("addUrlForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const urlInput = document.getElementById("urlInput");
+            let url = urlInput.value.trim();
+            if (!url) return;
+
+            if (!url.startsWith("http")) url = "https://" + url;
+
+            try {
+                // 🧠 Detect same host (so it works on LAN / mobile)
+                const originHost = location.hostname || "localhost";
+
+                const res = await fetch(`http://${originHost}:${backendPort}/add`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ deviceId, url }),
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    statusEl.textContent = `✅ Added: ${data.title}`;
+                    urlInput.value = "";
+                } else {
+                    statusEl.textContent = "❌ Failed to add URL";
+                }
+            } catch (err) {
+                console.error("Add URL error:", err);
+                statusEl.textContent = "⚠️ Server not reachable";
+            }
+        });
+
+
+
+        init();
+    </script>
+</body>
+
+</html>

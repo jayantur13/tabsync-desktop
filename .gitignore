@@ -1,0 +1,51 @@
+# Node.js dependencies
+node_modules/
+server/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment / local config
+.env
+.env.local
+*.local
+
+# Build & cache
+dist/
+build/
+out/
+.cache/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE / editor configs
+.vscode/
+.idea/
+*.iml
+
+# OS-specific
+ehthumbs.db
+Desktop.ini
+
+# Logs / data files
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage / test output
+coverage/
+.nyc_output/
+
+# TypeScript (if you add it later)
+*.tsbuildinfo
+
