@@ -8,34 +8,83 @@ import { Octokit } from "@octokit/rest";
 const git = simpleGit();
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
-async function generateChangelog() {
-  const log = await git.log({ from: (await git.tags()).latest, to: "HEAD" });
-  if (!log.all.length) return "No new commits since last release.";
-
-  const formatted = log.all
-    .map(({ message, hash }) => {
-      const typeMatch = message.match(
-        /^(feat|fix|chore|patch|update|refactor)/i
-      );
-      const type = typeMatch ? typeMatch[0].toUpperCase() : "Update";
-      const cleanMsg = message.replace(
-        /^(feat|fix|chore|patch|update|refactor)\:?\s*/i,
-        ""
-      );
-      return `- **${type}:** ${cleanMsg} ([${hash.slice(0, 7)}](https://github.com/jayantur13/tabsync-desktop/commit/${hash}))`;
-    })
-    .join("\n");
-
+function formatDate() {
   const now = new Date();
-  const date = now.toLocaleDateString("en-GB").replace(/\//g, ".");
+  return now.toLocaleDateString("en-GB").replace(/\//g, ".");
+}
 
-  return `# 🧾 Change Log
+function groupCommits(commits) {
+  const groups = {
+    feat: [],
+    fix: [],
+    refactor: [],
+    chore: [],
+    patch: [],
+    update: [],
+    misc: [],
+  };
 
-## ${pkg.version} – _${date}_
+  for (const { message, hash } of commits) {
+    const typeMatch = message.match(/^(feat|fix|refactor|chore|patch|update)/i);
+    const type = typeMatch ? typeMatch[1].toLowerCase() : "misc";
+    const cleanMsg = message.replace(/^(feat|fix|refactor|chore|patch|update):?\s*/i, "");
+    groups[type].push({ msg: cleanMsg, hash });
+  }
 
-### 🚀 Release
+  return groups;
+}
 
-${formatted}\n`;
+function formatGroups(groups) {
+  const headers = {
+    feat: "✨ Features",
+    fix: "🐛 Fixes",
+    refactor: "🧠 Refactors",
+    chore: "🧹 Chores",
+    patch: "🔧 Patches",
+    update: "🛠️ Updates",
+    misc: "📝 Miscellaneous",
+  };
+
+  let output = "";
+  for (const [type, commits] of Object.entries(groups)) {
+    if (commits.length === 0) continue;
+    output += `\n### ${headers[type]}\n\n`;
+    output += commits
+      .map(
+        ({ msg, hash }) =>
+          `- ${msg} ([${hash.slice(0, 7)}](https://github.com/jayantur13/tabsync-desktop/commit/${hash}))`
+      )
+      .join("\n");
+    output += "\n";
+  }
+  return output;
+}
+
+async function generateChangelog() {
+  const tags = await git.tags();
+  const latestTag = tags.latest;
+
+  const log = latestTag
+    ? await git.log({ from: latestTag, to: "HEAD" })
+    : await git.log();
+
+  if (!log.all.length)
+    return { content: "No new commits since last release.", isFirst: !latestTag };
+
+  const grouped = groupCommits(log.all);
+  const formatted = formatGroups(grouped);
+
+  const date = formatDate();
+  const header = `## ${pkg.version} – _${date}_\n`;
+
+  const subheader = latestTag
+    ? `### 🚀 Release\n`
+    : `### 🏁 Initial Release\nThis is the first official release of TabSync Desktop.\n`;
+
+  return {
+    content: `${header}\n${subheader}${formatted}\n`,
+    isFirst: !latestTag,
+  };
 }
 
 async function main() {
@@ -56,19 +105,28 @@ async function main() {
   if (bump !== "none")
     execSync(`npm version ${bump} --no-git-tag-version`, { stdio: "inherit" });
 
-  const changelog = await generateChangelog();
-  fs.writeFileSync("CHANGELOG.md", changelog);
+  const { content, isFirst } = await generateChangelog();
 
-  console.log("📝 CHANGELOG.md generated.");
+  const changelogPath = "CHANGELOG.md";
+  let previous = "";
 
-  // Commit changelog and version bump
+  if (fs.existsSync(changelogPath) && !isFirst) {
+    previous = fs.readFileSync(changelogPath, "utf8").trim();
+  }
+
+  const newContent = `# 🧾 Change Log\n\n${content}${previous ? "\n" + previous : ""}`;
+  fs.writeFileSync(changelogPath, newContent.trim() + "\n");
+
+  console.log("📝 CHANGELOG.md updated.");
+
+  // Commit and push
   await git.add(["CHANGELOG.md", "package.json"]);
   await git.commit(`chore(release): ${pkg.version}`);
   await git.push();
 
   console.log("📤 Changes committed and pushed.");
 
-  // Run build
+  // Build the app
   console.log("🏗️ Building app...");
   execSync("npm run make:all", { stdio: "inherit" });
 
@@ -83,7 +141,7 @@ async function main() {
     repo: "tabsync-desktop",
     tag_name: tag,
     name: `TabSync ${tag}`,
-    body: changelog,
+    body: content,
     draft: true,
   });
 
