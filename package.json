@@ -31,10 +31,10 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "publish": "electron-forge publish",
+    "make:linux": "electron-forge make --platform=linux --arch=x64",
+    "make:win": "electron-forge make --platform=win32 --arch=x64",
     "make:clean": "rm -rf out/make out/TabSync-*",
-    "make:linux": "npm run make:clean && electron-forge make --platform=linux --arch=x64",
-    "make:win": "npm run make:clean && electron-forge make --platform=win32 --arch=x64",
-    "make:all": "npm run make:linux && npm run make:win",
+    "make:all": "npm run make:clean && npm run make:linux && npm run make:win",
     "release": "node scripts/release.js"
   },
   "dependencies": {
