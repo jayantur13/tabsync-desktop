@@ -28,7 +28,10 @@ function groupCommits(commits) {
   for (const { message, hash } of commits) {
     const typeMatch = message.match(/^(feat|fix|refactor|chore|patch|update)/i);
     const type = typeMatch ? typeMatch[1].toLowerCase() : "misc";
-    const cleanMsg = message.replace(/^(feat|fix|refactor|chore|patch|update):?\s*/i, "");
+    const cleanMsg = message.replace(
+      /^(feat|fix|refactor|chore|patch|update):?\s*/i,
+      ""
+    );
     groups[type].push({ msg: cleanMsg, hash });
   }
 
@@ -70,7 +73,10 @@ async function generateChangelog() {
     : await git.log();
 
   if (!log.all.length)
-    return { content: "No new commits since last release.", isFirst: !latestTag };
+    return {
+      content: "No new commits since last release.",
+      isFirst: !latestTag,
+    };
 
   const grouped = groupCommits(log.all);
   const formatted = formatGroups(grouped);
@@ -103,6 +109,7 @@ async function uploadBinaries(octokit, releaseId) {
     ".exe",
     ".nupkg",
     ".zip",
+    "RELEASES",
   ];
 
   // Recursive walk function
