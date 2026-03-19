@@ -63,7 +63,7 @@
     "@pengx17/electron-forge-maker-appimage": "^1.2.1",
     "electron": "^39.0.0",
     "prompts": "^2.4.2",
-    "simple-git": "^3.30.0"
+    "simple-git": "^3.32.3"
   },
   "config": {
     "forge": "forge.config.cjs"
