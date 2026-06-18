@@ -6,11 +6,30 @@
   </p>
 </p>
 
-## Alternate to desktop app:
+##  Requirements
 
-- Install the [tabsync-cli](https://www.npmjs.com/package/tabsync-cli) [tabsync-cli-source](https://github.com/jayantur13/tabsync-cli)
+- Option 1. Download a Simple CLI
 
-## Chrome/Edge [extension](https://github.com/jayantur13/tabsync-extension) is required to communicate data
+```bash
+  npm install -g tabsync-cli 
+  or
+  pip install tabsync-cli (planned)
+```
+> Source[`tabsync-cli`](https://github.com/jayantur13/tabsync-cli)
+
+- Option 2. Download Desktop App
+
+<a href="https://github.com/jayantur13/tabsync-desktop/releases" target="_blank">
+  <img src="/store/github-release.png" width="236" />
+</a>
+   
+- Mandatory: Download Extension
+
+  <a href="https://microsoftedge.microsoft.com/addons/detail/tabsync-local-browser-s/hnfbmkdiaonenacjogpccahkckbfkjfj" target="_blank">
+    <img src="/store/edge-store.png" width="236" />
+  </a>
+
+> Source[`tabsync-extension`](https://github.com/jayantur13/tabsync-extension)
 
 ---
 
@@ -68,6 +87,16 @@ The UI updates in real time whenever devices connect, disconnect (requires refre
 - CLI script → Spawns the server, detects IP, and shows QR code for easy connection
 
 ---
+
+## Screenshot
+
+![tabsync-screenshot](/store/tabsyncbrowser.png "tbrowser")
+
+---
+
+## Troubleshooting
+
+- No tabs ? Open TabSync extension and re-enter same port as Desktop App.
 
 ## Auto Cleanup
 
