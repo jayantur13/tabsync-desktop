@@ -90,7 +90,7 @@ The UI updates in real time whenever devices connect, disconnect (requires refre
 
 ## Screenshot
 
-![tabsync-screenshot](/store/tabsyncbrowser.png "tbrowser")
+![tabsync-screenshot](/store/tdesktop.png "tdesktop")
 
 ---
 
