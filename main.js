@@ -9,14 +9,8 @@ import {
   shell,
   screen
 } from "electron";
-import electronSquirrelStartup from "electron-squirrel-startup";
 
-// 🧩 Handle Squirrel.Windows startup events (must run before everything else)
-if (electronSquirrelStartup) {
-  app.quit();
-}
-
-app.setAppUserModelId("com.squirrel.TabSync.TabSync");
+app.setAppUserModelId("com.jayantur13.tabsync-desktop");
 
 import path, { format } from "path";
 import os from "os";
@@ -35,6 +29,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 let mainWindow;
+let checkUpdateMenuItem;
 let tray;
 let serverProcess;
 let isQuitting = false;
@@ -171,8 +166,15 @@ function createTray() {
     { label: "Settings", click: openSettings },
     { type: "separator" },
     {
+      id: "check-update", // Added an ID so we can look it up later
       label: "Check for Updates",
-      click: () => autoUpdater.checkForUpdatesAndNotify(),
+      click: () => {
+        autoUpdater.checkForUpdatesAndNotify();
+        if (checkUpdateMenuItem) {
+          checkUpdateMenuItem.label = "Checking...";
+          tray.setContextMenu(contextMenu);
+        }
+      },
     },
     { type: "separator" },
     {
@@ -182,8 +184,8 @@ function createTray() {
         app.quit();
       },
     },
-    ,
   ]);
+  checkUpdateMenuItem = contextMenu.getMenuItemById("check-update");
   tray.setToolTip("TabSync is running");
   tray.setContextMenu(contextMenu);
   tray.on("click", () => mainWindow.show());
@@ -249,9 +251,11 @@ app.whenReady().then(async () => {
     // 2. Create your custom menu item
     const myCustomMenu = new MenuItem({
       label: 'TabSync',
-      submenu: [{ label: 'Settings', click: () => { 
-        openSettings();
-      } }]
+      submenu: [{
+        label: 'Settings', click: () => {
+          openSettings();
+        }
+      }]
     });
 
     // 3. Append and reset
@@ -280,4 +284,81 @@ app.whenReady().then(async () => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+});
+
+/* ==========================================
+      ELECTRON UPDATER EVENT LISTENERS
+   ========================================== */
+
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...');
+});
+
+autoUpdater.on('update-available', (info) => {
+  if (checkUpdateMenuItem) {
+    checkUpdateMenuItem.label = "Update found! Downloading...";
+    tray.setContextMenu(Menu.getApplicationMenu() || tray.getContextMenu());
+  }
+
+  //  Pop a native system notification bubble
+  tray.displayBalloon?.({
+    title: "TabSync Update",
+    content: `Version ${info.version} is available and downloading!`,
+  });
+
+  // Tell your UI window that an update started downloading
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloading', percent: 0 });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  const percent = Math.round(progressObj.percent);
+  console.log(`Download progress: ${percent}%`);
+
+  // Update Tray context menu label reactively
+  if (checkUpdateMenuItem) {
+    checkUpdateMenuItem.label = `Downloading Update (${percent}%)`;
+    // Re-set context menu to trigger a visual layout redraw in Windows taskbar
+    const currentMenu = tray.getContextMenu();
+    if (currentMenu) tray.setContextMenu(currentMenu);
+  }
+
+  // Pass raw numeric progress to your HTML UI
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'downloading', percent });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  if (checkUpdateMenuItem) {
+    checkUpdateMenuItem.label = "Update Ready (Restart App)";
+    const currentMenu = tray.getContextMenu();
+    if (currentMenu) tray.setContextMenu(currentMenu);
+  }
+
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'ready' });
+  }
+
+  // Ask the user to restart immediately or defer
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Ready',
+    message: `Version ${info.version} has downloaded. Would you like to restart TabSync to install it now?`,
+    buttons: ['Restart Now', 'Later']
+  }).then((result) => {
+    if (result.response === 0) {
+      isQuitting = true; // prevent minimize-to-tray loop interception
+      autoUpdater.quitAndInstall();
+    }
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Updater error:', err);
+  if (checkUpdateMenuItem) {
+    checkUpdateMenuItem.label = "Check for Updates";
+    const currentMenu = tray.getContextMenu();
+    if (currentMenu) tray.setContextMenu(currentMenu);
+  }
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err.message });
 });

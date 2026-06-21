@@ -1,4 +1,3 @@
-const MakerSquirrel = require("@electron-forge/maker-squirrel").default;
 const MakerAppImage = require("@forkprince/electron-forge-maker-appimage").default;
 const MakerZip = require("@electron-forge/maker-zip").default;
 const MakerDeb = require("@electron-forge/maker-deb").default;
@@ -6,6 +5,7 @@ const MakerRpm = require("@electron-forge/maker-rpm").default;
 const PluginAutoUnpackNatives =
   require("@electron-forge/plugin-auto-unpack-natives").default;
 const PluginFuses = require("@electron-forge/plugin-fuses").default;
+const { default: MakerWix } = require("@electron-forge/maker-wix");
 const { FuseV1Options, FuseVersion } = require("@electron/fuses");
 const PublisherGithub = require("@electron-forge/publisher-github").default;
 const path = require("path");
@@ -48,11 +48,11 @@ module.exports = {
   rebuildConfig: {},
   extraResource: [],
   makers: [
-    new MakerSquirrel({
-      authors: "Jayant Navrange",
-      description: "TabSync Electron app for syncing browser tabs.",
-      name: "tabsync",
-      setupIcon: path.resolve(__dirname, "icons/icon.ico"),
+    new MakerWix({
+      config: {
+        language: 1033,
+        manufacturer: 'Jayant Navrange'
+      }
     }),
     new MakerAppImage({
       name: "tabsync",
@@ -62,6 +62,7 @@ module.exports = {
     new MakerZip({ platforms: ["linux", "darwin", "win32"] }),
     new MakerDeb({
       options: {
+        platforms: ["linux"],
         maintainer: "Jayant Navrange",
         homepage: "https://github.com/jayantur13/tabsync-desktop",
         categories: ["Utility"],
@@ -70,6 +71,7 @@ module.exports = {
     }),
     new MakerRpm({
       options: {
+        platforms: ["linux"],
         homepage: "https://github.com/jayantur13/tabsync-desktop",
       },
     }),

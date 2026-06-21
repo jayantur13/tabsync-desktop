@@ -118,7 +118,7 @@ Please adhere to this project's [Code Of Conduct](https://github.com/jayantur13/
 
 ## Support
 
-Support the developers for this project to live long.For issues, open a new issue or use discussion.
+Support this project so I can buy a new laptop.For issues, open a new issue.
 
 ## License
 

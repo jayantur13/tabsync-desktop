@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld("tabsync", {
 
 contextBridge.exposeInMainWorld("electronAPI", {
   openExternal: (url) => ipcRenderer.send("open-external", url),
+  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, data) => callback(data))
 });
