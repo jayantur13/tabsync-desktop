@@ -35,4 +35,4 @@ jobs:
             out/make/**/*.exe
             out/make/**/*.msi
         env:
-          GITHUB_TOKEN: ${{ secrets.WIN_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

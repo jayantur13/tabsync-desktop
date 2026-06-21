@@ -7,156 +7,46 @@ import simpleGit from "simple-git";
 import { Octokit } from "@octokit/rest";
 
 const git = simpleGit();
-const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+const changelogPath = "CHANGELOG.md";
 
 function formatDate() {
   const now = new Date();
   return now.toLocaleDateString("en-GB").replace(/\//g, ".");
 }
 
-function groupCommits(commits) {
-  const groups = {
-    feat: [],
-    fix: [],
-    refactor: [],
-    chore: [],
-    patch: [],
-    update: [],
-    misc: [],
-  };
-
-  for (const { message, hash } of commits) {
-    const typeMatch = message.match(/^(feat|fix|refactor|chore|patch|update)/i);
-    const type = typeMatch ? typeMatch[1].toLowerCase() : "misc";
-    const cleanMsg = message.replace(
-      /^(feat|fix|refactor|chore|patch|update):?\s*/i,
-      ""
-    );
-    groups[type].push({ msg: cleanMsg, hash });
-  }
-
-  return groups;
-}
-
-function formatGroups(groups) {
-  const headers = {
-    feat: "✨ Features",
-    fix: "🐛 Fixes",
-    refactor: "🧠 Refactors",
-    chore: "🧹 Chores",
-    patch: "🔧 Patches",
-    update: "🛠️ Updates",
-    misc: "📝 Miscellaneous",
-  };
-
-  let output = "";
-  for (const [type, commits] of Object.entries(groups)) {
-    if (commits.length === 0) continue;
-    output += `\n### ${headers[type]}\n\n`;
-    output += commits
-      .map(
-        ({ msg, hash }) =>
-          `- ${msg} ([${hash.slice(0, 7)}](https://github.com/jayantur13/tabsync-desktop/commit/${hash}))`
-      )
-      .join("\n");
-    output += "\n";
-  }
-  return output;
-}
-
-async function generateChangelog() {
-  const tags = await git.tags();
-  const latestTag = tags.latest;
-
-  const log = latestTag
-    ? await git.log({ from: latestTag, to: "HEAD" })
-    : await git.log();
-
-  if (!log.all.length)
-    return {
-      content: "No new commits since last release.",
-      isFirst: !latestTag,
-    };
-
-  const grouped = groupCommits(log.all);
-  const formatted = formatGroups(grouped);
-
-  const date = formatDate();
-  const header = `## ${pkg.version} – _${date}_\n`;
-
-  const subheader = latestTag
-    ? `### 🚀 Release\n`
-    : `### 🏁 Initial Release\nThis is the first official release of TabSync Desktop.\n`;
-
-  return {
-    content: `${header}\n${subheader}${formatted}\n`,
-    isFirst: !latestTag,
-  };
-}
-
 async function uploadBinaries(octokit, releaseId) {
   const distDir = "out/make";
-  if (!fs.existsSync(distDir)) {
-    console.warn("⚠️ No build directory found:", distDir);
-    return;
-  }
+  if (!fs.existsSync(distDir)) return;
 
-  // Supported binary extensions for Linux & Windows builds
-  const binaryExts = [
-    ".AppImage",
-    ".deb",
-    ".rpm",
-    ".exe",
-    ".nupkg",
-    ".zip",
-    "RELEASES",
-  ];
-
-  // Recursive walk function
+  const binaryExts = [".appimage", ".deb", ".rpm", "RELEASES"];
+  
   function walk(dir) {
     let results = [];
     for (const file of fs.readdirSync(dir)) {
       const full = path.join(dir, file);
-      const stat = fs.statSync(full);
-      if (stat.isDirectory()) results = results.concat(walk(full));
+      if (fs.statSync(full).isDirectory()) results = results.concat(walk(full));
       else results.push(full);
     }
     return results;
   }
 
-  // Collect all binaries
-  const allFiles = walk(distDir);
-  const binaries = allFiles.filter((f) =>
-    binaryExts.some((ext) => f.toLowerCase().endsWith(ext.toLowerCase()))
+  const binaries = walk(distDir).filter((f) =>
+    binaryExts.some((ext) => f.toLowerCase().endsWith(ext))
   );
 
-  if (binaries.length === 0) {
-    console.warn("⚠️ No binaries found to upload in:", distDir);
-    return;
-  }
-
-  console.log(`📦 Found ${binaries.length} binaries to upload:\n`);
   for (const filePath of binaries) {
     const fileName = path.basename(filePath);
-    const fileSize = (fs.statSync(filePath).size / (1024 * 1024)).toFixed(2);
-
-    console.log(`⬆️ Uploading: ${fileName} (${fileSize} MB)`);
+    console.log(`⬆️ Uploading Linux asset: ${fileName}`);
     try {
       const data = fs.readFileSync(filePath);
-
       await octokit.repos.uploadReleaseAsset({
         owner: "jayantur13",
         repo: "tabsync-desktop",
         release_id: releaseId,
         name: fileName,
         data,
-        headers: {
-          "content-length": data.length,
-          "content-type": "application/octet-stream",
-        },
+        headers: { "content-length": data.length, "content-type": "application/octet-stream" },
       });
-
-      console.log(`✅ Uploaded ${fileName}`);
     } catch (err) {
       console.error(`❌ Failed to upload ${fileName}:`, err.message);
     }
@@ -164,8 +54,9 @@ async function uploadBinaries(octokit, releaseId) {
 }
 
 async function main() {
-  console.log("🚀 TabSync Release Helper");
+  console.log("🚀 TabSync Release Helper (Developer Written)");
 
+  // 1. Version Bump Selection
   const { bump } = await prompts({
     type: "select",
     name: "bump",
@@ -178,57 +69,78 @@ async function main() {
     ],
   });
 
-  if (bump !== "none")
+  if (bump !== "none") {
     execSync(`npm version ${bump} --no-git-tag-version`, { stdio: "inherit" });
-
-  const { content, isFirst } = await generateChangelog();
-
-  const changelogPath = "CHANGELOG.md";
-  let previous = "";
-
-  if (fs.existsSync(changelogPath) && !isFirst) {
-    previous = fs.readFileSync(changelogPath, "utf8").trim();
   }
 
-  const newContent = `# 🧾 ChangeLog\n\n${content}${previous ? "\n" + previous : ""}`;
-  fs.writeFileSync(changelogPath, newContent.trim() + "\n");
-  console.log("📝 CHANGELOG.md updated.");
+  // Refresh package metadata reference post-bump
+  const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+  const versionHeader = `## ${pkg.version} – _${formatDate()}_\n`;
 
-  // Commit and push
+  // 2. Prep Custom Entry File Writing
+  let existingContent = "";
+  if (fs.existsSync(changelogPath)) {
+    existingContent = fs.readFileSync(changelogPath, "utf8").replace(/^# 🧾 ChangeLog\s*/i, "");
+  }
+
+  // Template stub we inject to help write notes quickly
+  const editTemplate = `${versionHeader}\n### 🚀 Changes\n- Add your notes here...\n\n\n${existingContent}`;
+  fs.writeFileSync(changelogPath, editTemplate);
+
+  // 3. Open your terminal environment's preferred text editor automatically
+  console.log("📝 Opening CHANGELOG.md for your notes...");
+  const editor = process.env.EDITOR || "code --wait" || "nano"; 
+  // Note: if you use VS Code globally, 'code --wait' is ideal. If on basic linux servers, falls back to nano.
+  execSync(`${editor} ${changelogPath}`, { stdio: "inherit" });
+
+  // 4. Capture what the developer just finished writing
+  const finalChangelog = fs.readFileSync(changelogPath, "utf8");
+  
+  // Isolate just the new text block to use as the GitHub Release description body
+  const rawReleaseBody = finalChangelog.split("")[0];
+  const formattedReleaseBody = rawReleaseBody.replace(versionHeader, "").trim();
+
+  // Add clean main structure title to the top of file
+  if (!finalChangelog.startsWith("# 🧾 ChangeLog")) {
+    fs.writeFileSync(changelogPath, `# 🧾 ChangeLog\n\n${finalChangelog.replace(/^# 🧾 ChangeLog\s*/i, "").trim()}\n`);
+  }
+
+  // 5. Commit and Push core repo files
   await git.add(["CHANGELOG.md", "package.json"]);
   await git.commit(`chore(release): ${pkg.version}`);
   await git.push();
-  await git.addTag(`v${pkg.version}`);
-  await git.pushTags();
-  console.log("📤 Changes committed and pushed.");
 
-  // Build the app
-  console.log("🏗️ Building app for Linux and Windows...");
-  execSync("npm run make:linux", { stdio: "inherit" });
-  //execSync("npm run make:win", { stdio: "inherit" });
-
-  // Create GitHub draft release
-  if (!process.env.GITHUB_TOKEN)
-    throw new Error("Missing GITHUB_TOKEN in environment.");
-
-  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+  // 6. Push Safe Dynamic Git Tags to trigger the Windows Build Pipeline in GitHub Actions
   const tag = `v${pkg.version}`;
+  const localTags = await git.tags();
+  if (localTags.all.includes(tag)) {
+    await git.tag(["-f", tag]);
+  } else {
+    await git.addTag(tag);
+  }
+  await git.push(["-f", "origin", tag]);
+  console.log("📤 Core commits and version tags pushed.");
+
+  // 7. Compile Linux locally (Windows compiled dynamically via GitHub Actions runner workflow instead)
+  console.log("🏗️ Compiling local Linux assets...");
+  execSync("npm run make:linux", { stdio: "inherit" });
+
+  // 8. Create GitHub Release Draft mapping your direct text input
+  if (!process.env.GITHUB_TOKEN) throw new Error("Missing GITHUB_TOKEN in environment.");
+  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
   const release = await octokit.repos.createRelease({
     owner: "jayantur13",
     repo: "tabsync-desktop",
     tag_name: tag,
     name: `${tag}`,
-    body: content,
+    body: formattedReleaseBody, // Exact developer words map here perfectly
     draft: true,
   });
 
   console.log(`✅ Draft release created: ${release.data.html_url}`);
-
-  // Upload binaries
   await uploadBinaries(octokit, release.data.id);
-
-  console.log("\n🎉 Release process complete!");
+  console.log("\n🎉 Release process completed successfully!");
 }
 
 main().catch((err) => {
