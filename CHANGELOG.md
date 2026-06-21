@@ -4,6 +4,17 @@
 
 ### 🚀 Release
 
+### 📝 Miscellaneous
+
+- Add keys ([147f59a](https://github.com/jayantur13/tabsync-desktop/commit/147f59a9ab55956f554367184c3be30654c8be7f))
+
+
+# 🧾 ChangeLog
+
+## 1.1.0 – _21.06.2026_
+
+### 🚀 Release
+
 ### 🐛 Fixes
 
 - Glob vulnerability ([72c0031](https://github.com/jayantur13/tabsync-desktop/commit/72c0031cc7b5766b437aef63aa6890f91eeaa48b))
