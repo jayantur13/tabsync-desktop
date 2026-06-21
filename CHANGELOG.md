@@ -1,14 +1,15 @@
 # 🧾 ChangeLog
 
-## 1.1.0 - _21.06.2026_
+## 1.1.0 – _21.06.2026_
 
-### Minor Release
+### 🚀 Minor release
 
 - Some bug fixes
 - Device removal on close/disconnect
 - WebSocket cleanup improvements
 - UI revamp
 - Temporary shift to actions to build win package (maker-squirrel not working)
+
 
 ## 1.0.0 – _09.11.2025_
 
