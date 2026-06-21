@@ -9,16 +9,11 @@ import { Octokit } from "@octokit/rest";
 const git = simpleGit();
 const changelogPath = "CHANGELOG.md";
 
-function formatDate() {
-  const now = new Date();
-  return now.toLocaleDateString("en-GB").replace(/\//g, ".");
-}
-
 async function uploadBinaries(octokit, releaseId) {
   const distDir = "out/make";
   if (!fs.existsSync(distDir)) return;
 
-  const binaryExts = [".appimage", ".deb", ".rpm", "RELEASES"];
+  const binaryExts = [".appimage", ".deb", ".rpm", "releases"];
   
   function walk(dir) {
     let results = [];
@@ -54,7 +49,7 @@ async function uploadBinaries(octokit, releaseId) {
 }
 
 async function main() {
-  console.log("🚀 TabSync Release Helper (Developer Written)");
+  console.log("🚀 TabSync Release Helper (Copy Local Notes Mode)");
 
   // 1. Version Bump Selection
   const { bump } = await prompts({
@@ -73,44 +68,30 @@ async function main() {
     execSync(`npm version ${bump} --no-git-tag-version`, { stdio: "inherit" });
   }
 
-  // Refresh package metadata reference post-bump
   const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-  const versionHeader = `## ${pkg.version} – _${formatDate()}_\n`;
 
-  // 2. Prep Custom Entry File Writing
-  let existingContent = "";
-  if (fs.existsSync(changelogPath)) {
-    existingContent = fs.readFileSync(changelogPath, "utf8").replace(/^# 🧾 ChangeLog\s*/i, "");
+  // 2. Read and Parse the local CHANGELOG.md
+  if (!fs.existsSync(changelogPath)) {
+    throw new Error("❌ CHANGELOG.md not found! Please create it and add your release notes.");
   }
 
-  // Template stub we inject to help write notes quickly
-  const editTemplate = `${versionHeader}\n### 🚀 Changes\n- Add your notes here...\n\n\n${existingContent}`;
-  fs.writeFileSync(changelogPath, editTemplate);
-
-  // 3. Open your terminal environment's preferred text editor automatically
-  console.log("📝 Opening CHANGELOG.md for your notes...");
-  const editor = process.env.EDITOR || "code --wait" || "nano"; 
-  // Note: if you use VS Code globally, 'code --wait' is ideal. If on basic linux servers, falls back to nano.
-  execSync(`${editor} ${changelogPath}`, { stdio: "inherit" });
-
-  // 4. Capture what the developer just finished writing
-  const finalChangelog = fs.readFileSync(changelogPath, "utf8");
+  const changelogContent = fs.readFileSync(changelogPath, "utf8");
   
-  // Isolate just the new text block to use as the GitHub Release description body
-  const rawReleaseBody = finalChangelog.split("")[0];
-  const formattedReleaseBody = rawReleaseBody.replace(versionHeader, "").trim();
+  // Extract everything between the main header/title and the END marker
+  const releaseNotesMatch = changelogContent.split("")[0];
+  // Strip off the main document title "# 🧾 ChangeLog" so it doesn't clutter the GitHub release page
+  const formattedReleaseBody = releaseNotesMatch.replace(/# 🧾 ChangeLog/i, "").trim();
 
-  // Add clean main structure title to the top of file
-  if (!finalChangelog.startsWith("# 🧾 ChangeLog")) {
-    fs.writeFileSync(changelogPath, `# 🧾 ChangeLog\n\n${finalChangelog.replace(/^# 🧾 ChangeLog\s*/i, "").trim()}\n`);
+  if (!formattedReleaseBody) {
+    throw new Error("❌ Could not extract new release notes. Make sure '' is present in your file.");
   }
 
-  // 5. Commit and Push core repo files
+  // 3. Commit and Push core repo files (including your manually edited changelog)
   await git.add(["CHANGELOG.md", "package.json"]);
   await git.commit(`chore(release): ${pkg.version}`);
   await git.push();
 
-  // 6. Push Safe Dynamic Git Tags to trigger the Windows Build Pipeline in GitHub Actions
+  // 4. Handle Tags safely
   const tag = `v${pkg.version}`;
   const localTags = await git.tags();
   if (localTags.all.includes(tag)) {
@@ -119,13 +100,13 @@ async function main() {
     await git.addTag(tag);
   }
   await git.push(["-f", "origin", tag]);
-  console.log("📤 Core commits and version tags pushed.");
+  console.log("📤 Commits and version tags pushed to GitHub.");
 
-  // 7. Compile Linux locally (Windows compiled dynamically via GitHub Actions runner workflow instead)
+  // 5. Compile Linux locally
   console.log("🏗️ Compiling local Linux assets...");
   execSync("npm run make:linux", { stdio: "inherit" });
 
-  // 8. Create GitHub Release Draft mapping your direct text input
+  // 6. Create GitHub Release Draft using your exact copied notes
   if (!process.env.GITHUB_TOKEN) throw new Error("Missing GITHUB_TOKEN in environment.");
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
@@ -134,7 +115,7 @@ async function main() {
     repo: "tabsync-desktop",
     tag_name: tag,
     name: `${tag}`,
-    body: formattedReleaseBody, // Exact developer words map here perfectly
+    body: formattedReleaseBody, // Copied straight from your local markdown file!
     draft: true,
   });
 

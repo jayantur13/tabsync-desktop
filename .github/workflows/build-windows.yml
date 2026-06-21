@@ -2,7 +2,11 @@ name: Build and Attach Windows Assets
 on:
   push:
     tags:
-      - 'v*' # Triggers automatically whenever a tag starting with 'v' is pushed
+      - 'v*'
+
+# ✨ ADD THIS PERMISSIONS BLOCK RIGHT HERE ✨
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -15,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # Updated to Node 22 to clear that deprecation warning!
           cache: 'npm'
 
       - name: Install dependencies
@@ -27,7 +31,6 @@ jobs:
       - name: Upload Windows Assets to Existing Release
         uses: softprops/action-gh-release@v2
         with:
-          # Automatically attaches the built files to the tag that triggered the script
           tag_name: ${{ github.ref_name }} 
           draft: true 
           files: |

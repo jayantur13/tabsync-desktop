@@ -35,7 +35,7 @@
     "make:win": "electron-forge make --platform=win32 --arch=x64",
     "make:clean": "rm -rf out/make out/TabSync-*",
     "make:all": "npm run make:clean && npm run make:linux && npm run make:win",
-    "release": "node scripts/release.js"
+    "release": "node --env-file=.env scripts/release.js"
   },
   "dependencies": {
     "auto-launch": "^5.0.6",
