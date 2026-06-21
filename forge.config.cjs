@@ -1,5 +1,5 @@
 const MakerSquirrel = require("@electron-forge/maker-squirrel").default;
-const MakerAppImage = require("@pengx17/electron-forge-maker-appimage").default;
+const MakerAppImage = require("@forkprince/electron-forge-maker-appimage").default;
 const MakerZip = require("@electron-forge/maker-zip").default;
 const MakerDeb = require("@electron-forge/maker-deb").default;
 const MakerRpm = require("@electron-forge/maker-rpm").default;

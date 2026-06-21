@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   Tray,
   Menu,
+  MenuItem,
   ipcMain,
   dialog,
   shell,
@@ -17,7 +18,7 @@ if (electronSquirrelStartup) {
 
 app.setAppUserModelId("com.squirrel.TabSync.TabSync");
 
-import path from "path";
+import path, { format } from "path";
 import os from "os";
 import { fileURLToPath } from "url";
 import updaterPkg from "electron-updater";
@@ -135,17 +136,17 @@ function createMainWindow(cfg) {
 
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 
- mainWindow.once("ready-to-show", () => {
-  // prevent off-screen launch
-  try {
-    const [x, y] = mainWindow.getPosition();
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    if (x < 0 || y < 0 || x > width || y > height) mainWindow.center();
-  } catch {}
+  mainWindow.once("ready-to-show", () => {
+    // prevent off-screen launch
+    try {
+      const [x, y] = mainWindow.getPosition();
+      const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+      if (x < 0 || y < 0 || x > width || y > height) mainWindow.center();
+    } catch { }
 
-  mainWindow.show();
-  mainWindow.focus();
-});
+    mainWindow.show();
+    mainWindow.focus();
+  });
 
 
   mainWindow.on("close", (event) => {
@@ -241,6 +242,22 @@ function restartApp() {
 }
 
 app.whenReady().then(async () => {
+  // 1. Get the current menu AFTER the app is ready
+  const currentMenu = Menu.getApplicationMenu();
+
+  if (currentMenu) {
+    // 2. Create your custom menu item
+    const myCustomMenu = new MenuItem({
+      label: 'TabSync',
+      submenu: [{ label: 'Settings', click: () => { 
+        openSettings();
+      } }]
+    });
+
+    // 3. Append and reset
+    currentMenu.append(myCustomMenu);
+    Menu.setApplicationMenu(currentMenu);
+  }
   const cfg = store.store;
 
   // Ensure window shows on first launch or after install

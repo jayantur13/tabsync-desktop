@@ -45,9 +45,8 @@
     "electron-updater": "^6.8.9"
   },
   "overrides": {
-    "@pengx17/electron-forge-maker-appimage": {
-      "glob": "13.0.6"
-    }
+    "tar": "7.5.16",
+    "tmp": "0.2.7"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.11.2",
@@ -59,9 +58,9 @@
     "@electron-forge/plugin-fuses": "^7.11.2",
     "@electron-forge/publisher-github": "^7.11.2",
     "@electron/fuses": "^1.0.0",
+    "@forkprince/electron-forge-maker-appimage": "^1.0.2",
     "@octokit/rest": "^22.0.1",
-    "@pengx17/electron-forge-maker-appimage": "^1.0.2",
-    "electron": "^42.4.0",
+    "electron": "^42.4.1",
     "prompts": "^2.4.2",
     "simple-git": "^3.36.0"
   },
