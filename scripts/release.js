@@ -9,6 +9,33 @@ import { Octokit } from "@octokit/rest";
 const git = simpleGit();
 const changelogPath = "CHANGELOG.md";
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractReleaseNotes(changelogContent, version) {
+  const lines = changelogContent.split("\n");
+
+  const startIndex = lines.findIndex((line) =>
+    line.startsWith(`## ${version}`)
+  );
+
+  if (startIndex === -1) {
+    throw new Error(`❌ No changelog entry found for version ${version}`);
+  }
+
+  let endIndex = lines.length;
+
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    if (/^##\s+\d+\.\d+\.\d+/.test(lines[i])) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  return lines.slice(startIndex, endIndex).join("\n").trim();
+}
+
 async function uploadBinaries(octokit, releaseId) {
   const distDir = "out/make";
   if (!fs.existsSync(distDir)) return;
@@ -69,18 +96,20 @@ async function main() {
   }
 
   const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+  const version = pkg.version;
 
   // 2. Read and Parse the local CHANGELOG.md
   if (!fs.existsSync(changelogPath)) {
     throw new Error("❌ CHANGELOG.md not found!");
   }
-  const changelogContent = fs.readFileSync(changelogPath, "utf8");
-  const releaseNotesMatch = changelogContent.split("")[0];
-  const formattedReleaseBody = releaseNotesMatch.replace(/# 🧾 ChangeLog/i, "").trim();
 
-  if (!formattedReleaseBody || formattedReleaseBody.length < 5) {
-    throw new Error("❌ Your release notes block appears empty! Check your formatting above the comment tag.");
-  }
+  const changelogContent = fs.readFileSync(changelogPath, "utf8");
+
+
+  const formattedReleaseBody = extractReleaseNotes(
+    changelogContent,
+    pkg.version
+  );
 
   // 3. Commit and Push code changes
   await git.add(["CHANGELOG.md", "package.json"]);
