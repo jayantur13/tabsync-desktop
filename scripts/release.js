@@ -110,8 +110,6 @@ async function main() {
   if (!process.env.GITHUB_TOKEN) throw new Error("Missing GITHUB_TOKEN in environment.");
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
-  const tag = `v${pkg.version}`;
-
   console.log("🚀 Creating GitHub Draft Release...");
   const release = await octokit.repos.createRelease({
     owner: "jayantur13",
