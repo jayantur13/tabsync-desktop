@@ -14,7 +14,7 @@ async function uploadBinaries(octokit, releaseId) {
   if (!fs.existsSync(distDir)) return;
 
   const binaryExts = [".appimage", ".deb", ".rpm", "releases"];
-  
+
   function walk(dir) {
     let results = [];
     for (const file of fs.readdirSync(dir)) {
@@ -76,7 +76,7 @@ async function main() {
   }
 
   const changelogContent = fs.readFileSync(changelogPath, "utf8");
-  
+
   // Extract everything between the main header/title and the END marker
   const releaseNotesMatch = changelogContent.split("")[0];
   // Strip off the main document title "# 🧾 ChangeLog" so it doesn't clutter the GitHub release page
@@ -110,18 +110,39 @@ async function main() {
   if (!process.env.GITHUB_TOKEN) throw new Error("Missing GITHUB_TOKEN in environment.");
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
+  const tag = `v${pkg.version}`;
+
+  console.log("🚀 Creating GitHub Draft Release...");
   const release = await octokit.repos.createRelease({
     owner: "jayantur13",
     repo: "tabsync-desktop",
     tag_name: tag,
     name: `${tag}`,
-    body: formattedReleaseBody, // Copied straight from your local markdown file!
-    draft: true,
+    body: formattedReleaseBody,
+    draft: true, // Creates the draft framework first
   });
 
   console.log(`✅ Draft release created: ${release.data.html_url}`);
+
+  // 7. Upload Linux binaries to this specific draft
   await uploadBinaries(octokit, release.data.id);
-  console.log("\n🎉 Release process completed successfully!");
+  console.log("✅ Local Linux assets uploaded to draft.");
+
+  // 8. ✨ PUSH THE TAG LAST ✨
+  // Moving this here ensures GitHub Actions doesn't start until the draft completely exists
+  console.log("🏷️ Registering and pushing version tags to GitHub...");
+  const localTags = await git.tags();
+  if (localTags.all.includes(tag)) {
+    await git.tag(["-f", tag]);
+  } else {
+    await git.addTag(tag);
+  }
+
+  // This push acts as the final trigger for your Windows cloud workflow
+  await git.push(["-f", "origin", tag]);
+  console.log("📤 Version tags pushed. GitHub Actions will now compile Windows assets.");
+
+  console.log("\n🎉 Local release process completed successfully! Check GitHub for the cloud build status.");
 }
 
 main().catch((err) => {

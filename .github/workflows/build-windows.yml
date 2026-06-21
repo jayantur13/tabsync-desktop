@@ -32,7 +32,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }} 
-          draft: true 
+          draft: true
+          prerelease: false
+          append_body: true
           files: |
             out/make/**/*.zip
             out/make/**/*.exe
