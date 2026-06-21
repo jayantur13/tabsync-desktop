@@ -1,0 +1,38 @@
+name: Build and Attach Windows Assets
+on:
+  push:
+    tags:
+      - 'v*' # Triggers automatically whenever a tag starting with 'v' is pushed
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile Windows Binaries
+        run: npm run make:win
+
+      - name: Upload Windows Assets to Existing Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Automatically attaches the built files to the tag that triggered the script
+          tag_name: ${{ github.ref_name }} 
+          draft: true 
+          files: |
+            out/make/**/*.zip
+            out/make/**/*.exe
+            out/make/**/*.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

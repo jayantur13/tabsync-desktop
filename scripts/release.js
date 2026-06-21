@@ -198,12 +198,14 @@ async function main() {
   await git.add(["CHANGELOG.md", "package.json"]);
   await git.commit(`chore(release): ${pkg.version}`);
   await git.push();
+  await git.addTag(`v${pkg.version}`);
+  await git.pushTags();
   console.log("📤 Changes committed and pushed.");
 
   // Build the app
   console.log("🏗️ Building app for Linux and Windows...");
   execSync("npm run make:linux", { stdio: "inherit" });
-  execSync("npm run make:win", { stdio: "inherit" });
+  //execSync("npm run make:win", { stdio: "inherit" });
 
   // Create GitHub draft release
   if (!process.env.GITHUB_TOKEN)
