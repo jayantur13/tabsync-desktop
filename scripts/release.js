@@ -14,7 +14,7 @@ async function uploadBinaries(octokit, releaseId) {
   if (!fs.existsSync(distDir)) return;
 
   const binaryExts = [".appimage", ".deb", ".rpm", "releases"];
-  
+
   function walk(dir) {
     let results = [];
     for (const file of fs.readdirSync(dir)) {
@@ -72,23 +72,24 @@ async function main() {
 
   // 2. Read and Parse the local CHANGELOG.md
   if (!fs.existsSync(changelogPath)) {
-    throw new Error("❌ CHANGELOG.md not found! Please create it and add your release notes.");
+    throw new Error("❌ CHANGELOG.md not found!");
   }
-
   const changelogContent = fs.readFileSync(changelogPath, "utf8");
-  
-  // Extract everything up to your custom boundary line marker
   const releaseNotesMatch = changelogContent.split("")[0];
   const formattedReleaseBody = releaseNotesMatch.replace(/# 🧾 ChangeLog/i, "").trim();
 
-  if (!formattedReleaseBody) {
-    throw new Error("❌ Could not extract new release notes. Make sure '' is present.");
+  if (!formattedReleaseBody || formattedReleaseBody.length < 5) {
+    throw new Error("❌ Your release notes block appears empty! Check your formatting above the comment tag.");
   }
 
   // 3. Commit and Push code changes
   await git.add(["CHANGELOG.md", "package.json"]);
-  await git.commit(`chore(release): ${pkg.version}`);
-  await git.push();
+  try {
+    await git.commit(`chore(release): ${pkg.version}`);
+    await git.push();
+  } catch (e) {
+    console.log("ℹ️ No new code changes to commit, proceeding with release template...");
+  }
 
   // 4. Compile Linux locally
   console.log("🏗️ Compiling local Linux assets...");
@@ -106,12 +107,12 @@ async function main() {
     repo: "tabsync-desktop",
     tag_name: tag,
     name: `${tag}`,
-    body: formattedReleaseBody, 
+    body: formattedReleaseBody,
     draft: true,
   });
 
   console.log(`✅ Draft release created: ${release.data.html_url}`);
-  
+
   // 6. Upload local Linux binaries directly to this specific draft ID
   await uploadBinaries(octokit, release.data.id);
   console.log("✅ Local Linux assets uploaded to draft.");
@@ -124,7 +125,7 @@ async function main() {
   } else {
     await git.addTag(tag);
   }
-  
+
   await git.push(["-f", "origin", tag]);
   console.log("📤 Version tags pushed. GitHub Actions will now compile Windows assets.");
   console.log("\n🎉 Local release actions completed successfully!");
