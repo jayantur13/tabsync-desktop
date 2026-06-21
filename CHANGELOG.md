@@ -10,7 +10,6 @@
 - UI revamp
 - Temporary shift to actions to build win package (maker-squirrel not working)
 
-
 ## 1.0.0 – _09.11.2025_
 
 ### 🏁 Initial Release
