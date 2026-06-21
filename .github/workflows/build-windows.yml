@@ -4,7 +4,6 @@ on:
     tags:
       - 'v*'
 
-# ✨ ADD THIS PERMISSIONS BLOCK RIGHT HERE ✨
 permissions:
   contents: write
 
@@ -19,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22 # Updated to Node 22 to clear that deprecation warning!
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -28,16 +27,8 @@ jobs:
       - name: Compile Windows Binaries
         run: npm run make:win
 
-      - name: Upload Windows Assets to Existing Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }} 
-          draft: true
-          prerelease: false
-          append_body: true
-          files: |
-            out/make/**/*.zip
-            out/make/**/*.exe
-            out/make/**/*.msi
+      - name: Upload Windows Assets to Existing Draft
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.ref_name }} out/make/**/*.zip out/make/**/*.exe out/make/**/*.msi --clobber

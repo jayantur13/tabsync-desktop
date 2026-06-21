@@ -129,7 +129,6 @@ async function main() {
   // 8. ✨ PUSH THE TAG LAST ✨
   // Moving this here ensures GitHub Actions doesn't start until the draft completely exists
   console.log("🏷️ Registering and pushing version tags to GitHub...");
-  const localTags = await git.tags();
   if (localTags.all.includes(tag)) {
     await git.tag(["-f", tag]);
   } else {
