@@ -31,4 +31,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} out/make/**/*.zip out/make/**/*.exe out/make/**/*.msi --clobber
+          # Use native PowerShell tools to recursively locate files safely on Windows
+          $files = Get-ChildItem -Path out/make/ -Recurse -Include *.zip, *.exe, *.msi | Select-Object -ExpandProperty FullName
+          
+          if ($files.Count -eq 0) {
+              Write-Error "❌ No binaries found in out/make/ to upload!"
+              exit 1
+          }
+
+          Write-Host "📦 Found files to upload: $files"
+
+          # Use GitHub CLI natively to pin these files directly under the existing tag release
+          gh release upload ${{ github.ref_name }} $files --clobber
