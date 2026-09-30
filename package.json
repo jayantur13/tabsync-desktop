@@ -59,7 +59,7 @@
     "@electron/fuses": "^1.0.0",
     "@forkprince/electron-forge-maker-appimage": "^1.0.2",
     "@octokit/rest": "^22.0.1",
-    "electron": "^42.4.1",
+    "electron": "^42.10.0",
     "prompts": "^2.4.2",
     "simple-git": "^3.36.0"
   },
